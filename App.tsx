@@ -16,6 +16,7 @@ const ManajemenPengguna = lazy(() => import('./pages/ManajemenPengguna'));
 const KalenderPendidikan = lazy(() => import('./pages/KalenderPendidikan'));
 const DataPengajarMapel = lazy(() => import('./pages/DataPengajarMapel'));
 const InputKehadiranSiswa = lazy(() => import('./pages/InputKehadiranSiswa'));
+const DaftarKehadiranSiswa = lazy(() => import('./pages/DaftarKehadiranSiswa'));
 const RekapKehadiranSiswa = lazy(() => import('./pages/RekapKehadiranSiswa'));
 const RekapKehadiranGuru = lazy(() => import('./pages/RekapKehadiranGuru'));
 const DataMutasiSiswa = lazy(() => import('./pages/DataMutasiSiswa'));
@@ -53,6 +54,7 @@ const Main: React.FC = () => {
           <Route path="data-siswa" element={<DataSiswa />} />
           <Route path="data-kelas" element={<DataKelas />} />
           <Route path="input-kehadiran-siswa" element={<InputKehadiranSiswa />} />
+          <Route path="daftar-kehadiran-siswa" element={<DaftarKehadiranSiswa />} />
           <Route path="rekap-kehadiran-siswa" element={<RekapKehadiranSiswa />} />
           <Route path="rekap-kehadiran-guru" element={<RekapKehadiranGuru />} />
           <Route path="data-mutasi-siswa" element={<DataMutasiSiswa />} />

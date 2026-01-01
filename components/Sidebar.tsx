@@ -1,3 +1,4 @@
+
 import React, { useState } from 'react';
 import { NavLink } from 'react-router-dom';
 import { 
@@ -87,6 +88,9 @@ const Sidebar: React.FC<SidebarProps> = ({ sidebarOpen, setSidebarOpen }) => {
               <div className="pl-8">
                 <NavLink to="/input-kehadiran-siswa" className={({ isActive }) => `${linkClasses} ${isActive ? activeLinkClasses : ''}`}>
                   <span className="mx-4 text-sm">Input Kehadiran</span>
+                </NavLink>
+                <NavLink to="/daftar-kehadiran-siswa" className={({ isActive }) => `${linkClasses} ${isActive ? activeLinkClasses : ''}`}>
+                  <span className="mx-4 text-sm">Daftar Kehadiran</span>
                 </NavLink>
                 <NavLink to="/rekap-kehadiran-siswa" className={({ isActive }) => `${linkClasses} ${isActive ? activeLinkClasses : ''}`}>
                   <span className="mx-4 text-sm">Rekap Kehadiran</span>

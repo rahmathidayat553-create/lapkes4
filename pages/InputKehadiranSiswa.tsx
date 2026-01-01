@@ -4,9 +4,12 @@ import { DataContext } from '../context/DataContext';
 import { KehadiranGuru, KehadiranGuruRecord, KehadiranSiswa, KehadiranSiswaRecord, KehadiranStatus, HariFormat } from '../types';
 import Modal from '../components/Modal';
 import { DeleteIcon } from '../components/icons/Icons';
+import { useSearchParams } from 'react-router-dom';
 
 const InputKehadiranSiswaPage: React.FC = () => {
     const context = useContext(DataContext);
+    const [searchParams] = useSearchParams();
+    
     const [selectedKelasId, setSelectedKelasId] = useState<string>('');
     const [tanggal, setTanggal] = useState<string>(new Date().toISOString().split('T')[0]);
     const [siswaKehadiran, setSiswaKehadiran] = useState<KehadiranSiswaRecord[]>([]);
@@ -19,6 +22,15 @@ const InputKehadiranSiswaPage: React.FC = () => {
 
     if (!context) return <div>Loading...</div>;
     const { kelasList, gurus, mapels, setKehadiranSiswa, setKehadiranGuru, kehadiranSiswa, kehadiranGuru, identitasSekolah, setIsLoading, setNotification } = context;
+
+    // Handle Query Params for Edit Mode Link
+    useEffect(() => {
+        const kelasParam = searchParams.get('kelasId');
+        const tanggalParam = searchParams.get('tanggal');
+        
+        if (kelasParam) setSelectedKelasId(kelasParam);
+        if (tanggalParam) setTanggal(tanggalParam);
+    }, [searchParams]);
 
     // Menentukan jumlah pertemuan berdasarkan format hari sekolah
     const jumlahPertemuan = identitasSekolah.format === HariFormat.LIMA ? 5 : 6;
