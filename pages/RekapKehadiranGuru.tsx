@@ -3,6 +3,7 @@ import React, { useContext, useState, useMemo } from 'react';
 import { DataContext } from '../context/DataContext';
 import { jsPDF } from 'jspdf';
 import 'jspdf-autotable';
+import * as XLSX from 'xlsx';
 
 const RekapKehadiranGuruPage: React.FC = () => {
     const context = useContext(DataContext);
@@ -34,41 +35,75 @@ const RekapKehadiranGuruPage: React.FC = () => {
         }
         
         // Aggregate data
-        const aggregated: { [guruId: string]: { totalPertemuan: number } } = {};
+        const aggregated: { [guruId: string]: { totalPertemuan: number, hariHadir: Set<string> } } = {};
         
         data.forEach(harian => {
             harian.kehadiran.forEach(rekaman => {
                 if (!aggregated[rekaman.guruId]) {
-                    aggregated[rekaman.guruId] = { totalPertemuan: 0 };
+                    aggregated[rekaman.guruId] = { totalPertemuan: 0, hariHadir: new Set() };
                 }
                 aggregated[rekaman.guruId].totalPertemuan += rekaman.jumlahPertemuan;
+                
+                // Jika guru memiliki pertemuan/hadir pada hari itu, catat tanggalnya
+                if (rekaman.jumlahPertemuan > 0) {
+                    aggregated[rekaman.guruId].hariHadir.add(harian.tanggal);
+                }
             });
         });
         
-        return Object.entries(aggregated).map(([guruId, { totalPertemuan }]) => ({
+        return Object.entries(aggregated).map(([guruId, { totalPertemuan, hariHadir }]) => ({
             guru: gurus.find(g => g.id === guruId),
             totalPertemuan,
+            totalHari: hariHadir.size
         })).filter(item => item.guru);
 
     }, [kehadiranGuru, filterTipe, startDate, endDate, selectedMonth, gurus]);
 
+    const getReportPeriodTitle = () => {
+        if (filterTipe === 'bulan' && selectedMonth) {
+            const date = new Date(selectedMonth + "-01");
+            return date.toLocaleDateString('id-ID', { month: 'long', year: 'numeric' });
+        } else if (filterTipe === 'rentang' && startDate && endDate) {
+             return `${new Date(startDate).toLocaleDateString('id-ID')} s.d ${new Date(endDate).toLocaleDateString('id-ID')}`;
+        }
+        return 'Semua Periode';
+    };
+
     const exportToPDF = () => {
         const doc = new jsPDF();
-        doc.text("Rekap Kehadiran Guru", 14, 16);
+        const period = getReportPeriodTitle();
+        
+        doc.text(`Rekap Kehadiran Guru`, 14, 16);
+        doc.setFontSize(10);
+        doc.text(`Periode: ${period}`, 14, 22);
         
         const tableData = filteredData.map(d => [
             d.guru?.nama_guru || 'N/A',
             d.guru?.status || 'N/A',
             d.guru?.nip || '-',
+            d.totalHari,
             d.totalPertemuan
         ]);
 
         (doc as any).autoTable({
-            head: [['Nama Guru', 'Status', 'NIP', 'Total Pertemuan']],
+            head: [['Nama Guru', 'Status', 'NIP', 'Total Hari Aktif', 'Total JP']],
             body: tableData,
-            startY: 20,
+            startY: 28,
         });
-        doc.save("rekap_kehadiran_guru.pdf");
+        doc.save(`rekap_kehadiran_guru_${new Date().toISOString().slice(0,10)}.pdf`);
+    };
+
+    const exportToExcel = () => {
+        const worksheet = XLSX.utils.json_to_sheet(filteredData.map(d => ({
+            "Nama Guru": d.guru?.nama_guru,
+            "Status": d.guru?.status,
+            "NIP": d.guru?.nip || '-',
+            "Total Hari Aktif": d.totalHari,
+            "Total JP": d.totalPertemuan
+        })));
+        const workbook = XLSX.utils.book_new();
+        XLSX.utils.book_append_sheet(workbook, worksheet, "Kehadiran Guru");
+        XLSX.writeFile(workbook, `rekap_kehadiran_guru_${new Date().toISOString().slice(0,10)}.xlsx`);
     };
     
     return (
@@ -104,34 +139,41 @@ const RekapKehadiranGuruPage: React.FC = () => {
                         </div>
                     )}
                 </div>
-                 <div className="flex justify-end mt-4">
+                 <div className="flex justify-end mt-4 space-x-2">
                     <button onClick={exportToPDF} className="px-4 py-2 bg-red-600 text-white rounded-md hover:bg-red-700">Export PDF</button>
+                    <button onClick={exportToExcel} className="px-4 py-2 bg-green-600 text-white rounded-md hover:bg-green-700">Export Excel</button>
                 </div>
             </div>
 
             <div className="bg-gray-800 p-6 rounded-lg shadow-md">
-                <div className="overflow-x-auto">
-                    <table className="min-w-full divide-y divide-gray-700">
-                        <thead className="bg-gray-700">
-                            <tr>
-                                <th className="px-6 py-3 text-left text-xs font-medium text-gray-300 uppercase tracking-wider whitespace-nowrap">Nama Guru</th>
-                                <th className="px-6 py-3 text-left text-xs font-medium text-gray-300 uppercase tracking-wider whitespace-nowrap">Status</th>
-                                <th className="px-6 py-3 text-left text-xs font-medium text-gray-300 uppercase tracking-wider whitespace-nowrap">NIP</th>
-                                <th className="px-6 py-3 text-center text-xs font-medium text-gray-300 uppercase tracking-wider whitespace-nowrap">Total Pertemuan</th>
-                            </tr>
-                        </thead>
-                        <tbody className="bg-gray-800 divide-y divide-gray-700">
-                            {filteredData.map(({ guru, totalPertemuan }) => (
-                                <tr key={guru?.id} className="hover:bg-gray-700">
-                                    <td className="px-6 py-4 whitespace-nowrap">{guru?.nama_guru}</td>
-                                    <td className="px-6 py-4 whitespace-nowrap">{guru?.status}</td>
-                                    <td className="px-6 py-4 whitespace-nowrap">{guru?.nip || '-'}</td>
-                                    <td className="px-6 py-4 text-center whitespace-nowrap">{totalPertemuan}</td>
+                {filteredData.length === 0 ? (
+                    <p className="text-gray-400 mt-2 text-center">Belum ada data kehadiran untuk periode ini.</p>
+                ) : (
+                    <div className="overflow-x-auto">
+                        <table className="min-w-full divide-y divide-gray-700">
+                            <thead className="bg-gray-700">
+                                <tr>
+                                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-300 uppercase tracking-wider whitespace-nowrap">Nama Guru</th>
+                                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-300 uppercase tracking-wider whitespace-nowrap">Status</th>
+                                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-300 uppercase tracking-wider whitespace-nowrap">NIP</th>
+                                    <th className="px-6 py-3 text-center text-xs font-medium text-gray-300 uppercase tracking-wider whitespace-nowrap">Total Hari Aktif</th>
+                                    <th className="px-6 py-3 text-center text-xs font-medium text-gray-300 uppercase tracking-wider whitespace-nowrap">Total JP</th>
                                 </tr>
-                            ))}
-                        </tbody>
-                    </table>
-                </div>
+                            </thead>
+                            <tbody className="bg-gray-800 divide-y divide-gray-700">
+                                {filteredData.map(({ guru, totalPertemuan, totalHari }) => (
+                                    <tr key={guru?.id} className="hover:bg-gray-700">
+                                        <td className="px-6 py-4 whitespace-nowrap">{guru?.nama_guru}</td>
+                                        <td className="px-6 py-4 whitespace-nowrap">{guru?.status}</td>
+                                        <td className="px-6 py-4 whitespace-nowrap">{guru?.nip || '-'}</td>
+                                        <td className="px-6 py-4 text-center whitespace-nowrap">{totalHari} Hari</td>
+                                        <td className="px-6 py-4 text-center whitespace-nowrap">{totalPertemuan} JP</td>
+                                    </tr>
+                                ))}
+                            </tbody>
+                        </table>
+                    </div>
+                )}
             </div>
         </div>
     );

@@ -26,12 +26,18 @@ const DataSiswaPage: React.FC = () => {
     };
 
     const handleSave = (siswa: Siswa) => {
+        // Validasi NISN ganda
+        if (siswas.some(s => s.nisn === siswa.nisn && s.id !== siswa.id)) {
+            alert("NISN sudah digunakan oleh siswa lain!");
+            return;
+        }
+
         setIsLoading(true);
         setTimeout(() => {
             if (siswa.id) {
                 setSiswas(prev => prev.map(s => s.id === siswa.id ? siswa : s));
             } else {
-                setSiswas(prev => [...prev, { ...siswa, id: new Date().toISOString() }]);
+                setSiswas(prev => [...prev, { ...siswa, id: crypto.randomUUID() }]);
             }
             handleCloseModal();
             setIsLoading(false);
@@ -58,15 +64,20 @@ const DataSiswaPage: React.FC = () => {
             const worksheet = workbook.Sheets[sheetName];
             const json = XLSX.utils.sheet_to_json(worksheet);
 
-            const newSiswas: Siswa[] = json.map((row: any) => ({
-                id: new Date().toISOString() + Math.random(),
-                nisn: row.NISN || '',
-                nama_siswa: row.Nama || '',
-                jk: row['Jenis Kelamin'] === 'P' ? Jk.PEREMPUAN : Jk.LAKI_LAKI,
-                status: StatusSiswa.BARU,
-                tgl_masuk: new Date().toISOString().split('T')[0],
-                mutasi: false,
-            }));
+            const newSiswas: Siswa[] = json.map((row: any) => {
+                // Parsing jenis kelamin yang lebih robust (case-insensitive)
+                const genderRaw = (row['Jenis Kelamin'] || '').toString().trim().toUpperCase();
+                
+                return {
+                    id: crypto.randomUUID(), // Menggunakan UUID agar lebih unik
+                    nisn: row.NISN || '',
+                    nama_siswa: row.Nama || '',
+                    jk: genderRaw === 'P' ? Jk.PEREMPUAN : Jk.LAKI_LAKI,
+                    status: StatusSiswa.BARU,
+                    tgl_masuk: new Date().toISOString().split('T')[0],
+                    mutasi: false,
+                };
+            });
             
             if(window.confirm(`Ditemukan ${newSiswas.length} data siswa. Impor sekarang?`)){
                setSiswas(prev => [...prev, ...newSiswas]);
@@ -196,6 +207,13 @@ const SiswaForm: React.FC<SiswaFormProps> = ({ isOpen, onClose, onSave, siswa, k
     
     const handleSubmit = (e: React.FormEvent) => {
         e.preventDefault();
+
+        // Validasi Nomor WA
+        if (formData.no_wa && !/^\d{9,15}$/.test(formData.no_wa)) {
+            alert("Nomor WA tidak valid. Harus berupa angka 9-15 digit.");
+            return;
+        }
+
         if (formData.nisn && formData.nama_siswa && formData.jk && formData.status && formData.tgl_masuk) {
             onSave(formData as Siswa);
         }
@@ -240,7 +258,7 @@ const SiswaForm: React.FC<SiswaFormProps> = ({ isOpen, onClose, onSave, siswa, k
                     </div>
                     <div>
                         <label className="block text-sm font-medium text-gray-300">No. WA (Opsional)</label>
-                        <input type="text" name="no_wa" value={formData.no_wa || ''} onChange={handleChange} className={inputStyles} />
+                        <input type="text" name="no_wa" value={formData.no_wa || ''} onChange={handleChange} className={inputStyles} placeholder="Contoh: 08123456789" />
                     </div>
                     <div>
                         <label className="block text-sm font-medium text-gray-300">Foto (Opsional)</label>

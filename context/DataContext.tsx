@@ -3,7 +3,7 @@ import React, { createContext, useState, ReactNode } from 'react';
 import useLocalStorage from '../hooks/useLocalStorage';
 import { 
     User, IdentitasSekolah, KalenderPendidikan, Guru, Mapel, PengajarMapel, 
-    Siswa, Kelas, KehadiranSiswa, KehadiranGuru, MutasiSiswa, Jenjang, HariFormat, Notification
+    Siswa, Kelas, KehadiranSiswa, KehadiranGuru, MutasiSiswa, Jenjang, HariFormat, Notification, UserRole
 } from '../types';
 
 interface DataContextType {
@@ -41,7 +41,8 @@ interface DataContextType {
 export const DataContext = createContext<DataContextType | null>(null);
 
 const initialUsers: User[] = [
-    { id: '1', nama: 'rahmat', user: 'admin', password: 'password123' },
+    // password: 'password123' encoded in base64
+    { id: '1', nama: 'Administrator', user: 'admin', password: btoa('password123'), role: UserRole.ADMIN },
 ];
 
 const initialIdentitas: IdentitasSekolah = {
@@ -75,10 +76,13 @@ export const DataProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
 
 
     const login = (user: string, pass: string): boolean => {
-        const foundUser = users.find(u => u.user === user && u.password === pass);
+        // Compare encoded passwords
+        const encodedPass = btoa(pass);
+        const foundUser = users.find(u => u.user === user && u.password === encodedPass);
+        
         if (foundUser) {
             const userToStore = { ...foundUser };
-            delete userToStore.password;
+            delete userToStore.password; // Don't store encoded password in session if possible, though local storage has it
             setCurrentUser(userToStore);
             return true;
         }

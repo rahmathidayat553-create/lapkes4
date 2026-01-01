@@ -24,18 +24,21 @@ const DataGuruPage: React.FC = () => {
         setCurrentGuru(null);
     };
 
-    const handleSave = (guru: Guru) => {
+    const handleSave = async (guru: Guru) => {
         setIsLoading(true);
-        setTimeout(() => {
-            if (guru.id) {
-                setGurus(prev => prev.map(g => g.id === guru.id ? guru : g));
-            } else {
-                setGurus(prev => [...prev, { ...guru, id: new Date().toISOString() }]);
-            }
-            handleCloseModal();
-            setIsLoading(false);
-            setNotification({ type: 'success', message: 'Data guru berhasil disimpan!' });
-        }, 500);
+        
+        // Use async promise instead of standard setTimeout for cleaner async flow
+        await new Promise(resolve => setTimeout(resolve, 500));
+        
+        if (guru.id) {
+            setGurus(prev => prev.map(g => g.id === guru.id ? guru : g));
+        } else {
+            setGurus(prev => [...prev, { ...guru, id: new Date().toISOString() }]);
+        }
+        
+        handleCloseModal();
+        setIsLoading(false);
+        setNotification({ type: 'success', message: 'Data guru berhasil disimpan!' });
     };
 
     const handleDelete = (id: string) => {
@@ -114,11 +117,24 @@ const GuruForm: React.FC<GuruFormProps> = ({ isOpen, onClose, onSave, guru }) =>
 
     const handleSubmit = (e: React.FormEvent) => {
         e.preventDefault();
-        if (formData.nama_guru && formData.jk && formData.status) {
-            if (formData.status === StatusGuru.NON_ASN) {
-                formData.nip = '-';
+        
+        // Validation for NIP
+        if (formData.status === StatusGuru.ASN) {
+            // Regex: Exactly 18 digits
+            const nipRegex = /^\d{18}$/;
+            if (!formData.nip || !nipRegex.test(formData.nip)) {
+                alert("NIP wajib diisi dan harus terdiri dari 18 digit angka untuk status ASN.");
+                return;
             }
-            onSave(formData as Guru);
+        }
+
+        if (formData.nama_guru && formData.jk && formData.status) {
+            // Clear NIP if changed to NON-ASN
+            const finalData = { ...formData };
+            if (finalData.status === StatusGuru.NON_ASN) {
+                finalData.nip = '-';
+            }
+            onSave(finalData as Guru);
         }
     };
     
@@ -145,8 +161,8 @@ const GuruForm: React.FC<GuruFormProps> = ({ isOpen, onClose, onSave, guru }) =>
                 </div>
                 {formData.status === StatusGuru.ASN && (
                      <div>
-                        <label className="block text-sm font-medium text-gray-300">NIP</label>
-                        <input type="text" name="nip" value={formData.nip || ''} onChange={handleChange} className="mt-1 block w-full px-3 py-2 bg-gray-700 border border-gray-600 rounded-md shadow-sm text-white focus:outline-none focus:ring-indigo-500 focus:border-indigo-500" required />
+                        <label className="block text-sm font-medium text-gray-300">NIP (18 Digit Angka)</label>
+                        <input type="text" name="nip" value={formData.nip || ''} onChange={handleChange} className="mt-1 block w-full px-3 py-2 bg-gray-700 border border-gray-600 rounded-md shadow-sm text-white focus:outline-none focus:ring-indigo-500 focus:border-indigo-500" required maxLength={18} placeholder="Contoh: 198001012005011005" />
                     </div>
                 )}
                 <div className="flex justify-end pt-4">

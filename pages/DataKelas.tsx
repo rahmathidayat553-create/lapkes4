@@ -53,7 +53,12 @@ const DataKelasPage: React.FC = () => {
         <div>
             <div className="flex justify-between items-center mb-6">
                 <h1 className="text-3xl font-bold text-gray-100">Data Kelas</h1>
-                <button onClick={() => handleOpenModal()} className="flex items-center px-4 py-2 text-white bg-indigo-600 rounded-md hover:bg-indigo-700">
+                <button 
+                    onClick={() => handleOpenModal()} 
+                    disabled={gurus.length === 0}
+                    title={gurus.length === 0 ? "Isi data guru terlebih dahulu untuk menentukan Wali Kelas" : ""}
+                    className="flex items-center px-4 py-2 text-white bg-indigo-600 rounded-md hover:bg-indigo-700 disabled:bg-gray-600 disabled:cursor-not-allowed"
+                >
                     <PlusIcon className="w-5 h-5 mr-2" />
                     Tambah Kelas
                 </button>

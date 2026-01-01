@@ -1,27 +1,33 @@
 
 import React, { useContext, useState } from 'react';
 import { DataContext } from '../context/DataContext';
-import { User } from '../types';
+import { User, UserRole } from '../types';
 import Modal from '../components/Modal';
 import { PlusIcon, EditIcon, DeleteIcon } from '../components/icons/Icons';
 
 const ManajemenPenggunaPage: React.FC = () => {
     const context = useContext(DataContext);
     const [isModalOpen, setIsModalOpen] = useState(false);
-    const [currentUser, setCurrentUser] = useState<Partial<User> | null>(null);
+    const [currentUserForm, setCurrentUserForm] = useState<Partial<User> | null>(null);
 
     if (!context) return <div>Loading...</div>;
 
-    const { users, setUsers, setIsLoading, setNotification } = context;
+    const { users, setUsers, setIsLoading, setNotification, currentUser } = context;
 
     const handleOpenModal = (user: Partial<User> | null = null) => {
-        setCurrentUser(user || {});
+        // Don't show the encrypted password in the form
+        if (user) {
+            const { password, ...rest } = user;
+            setCurrentUserForm(rest);
+        } else {
+            setCurrentUserForm({});
+        }
         setIsModalOpen(true);
     };
 
     const handleCloseModal = () => {
         setIsModalOpen(false);
-        setCurrentUser(null);
+        setCurrentUserForm(null);
     };
 
     const handleSave = (user: User) => {
@@ -39,6 +45,11 @@ const ManajemenPenggunaPage: React.FC = () => {
     };
 
     const handleDelete = (id: string) => {
+        if (id === currentUser?.id) {
+            alert("Anda tidak dapat menghapus akun Anda sendiri!");
+            return;
+        }
+
         if (users.length <= 1) {
             alert("Tidak dapat menghapus pengguna terakhir.");
             return;
@@ -66,6 +77,7 @@ const ManajemenPenggunaPage: React.FC = () => {
                             <tr>
                                 <th className="px-6 py-3 text-left text-xs font-medium text-gray-300 uppercase tracking-wider">Nama</th>
                                 <th className="px-6 py-3 text-left text-xs font-medium text-gray-300 uppercase tracking-wider">Username</th>
+                                <th className="px-6 py-3 text-left text-xs font-medium text-gray-300 uppercase tracking-wider">Role</th>
                                 <th className="px-6 py-3 text-right text-xs font-medium text-gray-300 uppercase tracking-wider">Aksi</th>
                             </tr>
                         </thead>
@@ -74,9 +86,24 @@ const ManajemenPenggunaPage: React.FC = () => {
                                 <tr key={user.id}>
                                     <td className="px-6 py-4 whitespace-nowrap">{user.nama}</td>
                                     <td className="px-6 py-4 whitespace-nowrap">{user.user}</td>
+                                    <td className="px-6 py-4 whitespace-nowrap">
+                                        <span className={`px-2 inline-flex text-xs leading-5 font-semibold rounded-full 
+                                            ${user.role === UserRole.ADMIN ? 'bg-red-100 text-red-800' : 
+                                              user.role === UserRole.STAFF ? 'bg-green-100 text-green-800' : 
+                                              'bg-blue-100 text-blue-800'}`}>
+                                            {user.role}
+                                        </span>
+                                    </td>
                                     <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
                                         <button onClick={() => handleOpenModal(user)} className="text-indigo-400 hover:text-indigo-300 mr-4"><EditIcon className="w-5 h-5" /></button>
-                                        <button onClick={() => handleDelete(user.id)} className="text-red-400 hover:text-red-300"><DeleteIcon className="w-5 h-5" /></button>
+                                        <button 
+                                            onClick={() => handleDelete(user.id)} 
+                                            className={`${user.id === currentUser?.id ? 'text-gray-500 cursor-not-allowed' : 'text-red-400 hover:text-red-300'}`}
+                                            disabled={user.id === currentUser?.id}
+                                            title={user.id === currentUser?.id ? "Tidak dapat menghapus akun sendiri" : "Hapus Pengguna"}
+                                        >
+                                            <DeleteIcon className="w-5 h-5" />
+                                        </button>
                                     </td>
                                 </tr>
                             ))}
@@ -90,7 +117,8 @@ const ManajemenPenggunaPage: React.FC = () => {
                     isOpen={isModalOpen}
                     onClose={handleCloseModal}
                     onSave={handleSave}
-                    user={currentUser}
+                    user={currentUserForm}
+                    existingUser={context.users.find(u => u.id === currentUserForm?.id)}
                 />
             )}
         </div>
@@ -102,21 +130,39 @@ interface UserFormProps {
     onClose: () => void;
     onSave: (user: User) => void;
     user: Partial<User> | null;
+    existingUser?: User;
 }
 
-const UserForm: React.FC<UserFormProps> = ({ isOpen, onClose, onSave, user }) => {
+const UserForm: React.FC<UserFormProps> = ({ isOpen, onClose, onSave, user, existingUser }) => {
     const [formData, setFormData] = useState<Partial<User>>(user || {});
+    // For password field, we separate it because we don't want to show the hash
+    const [passwordInput, setPasswordInput] = useState('');
 
-    const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
         const { name, value } = e.target;
         setFormData(prev => ({ ...prev, [name]: value }));
     };
 
     const handleSubmit = (e: React.FormEvent) => {
         e.preventDefault();
-        if (formData.nama && formData.user && (formData.password || user?.id)) {
-            onSave(formData as User);
-        } else if (!formData.password) {
+        
+        let finalPassword = existingUser?.password; // Keep old password by default
+
+        // If user entered a new password, encrypt it
+        if (passwordInput) {
+            finalPassword = btoa(passwordInput);
+        }
+
+        if (formData.nama && formData.user && formData.role && (finalPassword || user?.id)) {
+             const userToSave: User = {
+                id: user?.id || '',
+                nama: formData.nama!,
+                user: formData.user!,
+                role: formData.role || UserRole.OPERATOR,
+                password: finalPassword
+            };
+            onSave(userToSave);
+        } else if (!finalPassword) {
             alert("Password wajib diisi untuk pengguna baru.");
         }
     };
@@ -126,15 +172,29 @@ const UserForm: React.FC<UserFormProps> = ({ isOpen, onClose, onSave, user }) =>
             <form onSubmit={handleSubmit} className="space-y-4">
                 <div>
                     <label className="block text-sm font-medium text-gray-300">Nama Lengkap</label>
-                    <input type="text" name="nama" value={formData.nama || ''} onChange={handleChange} className="mt-1 block w-full px-3 py-2 bg-gray-700 border border-gray-600 rounded-md shadow-sm text-white" required />
+                    <input type="text" name="nama" value={formData.nama || ''} onChange={handleChange} className="mt-1 block w-full px-3 py-2 bg-gray-700 border border-gray-600 rounded-md shadow-sm text-white focus:outline-none focus:ring-indigo-500 focus:border-indigo-500" required />
                 </div>
                 <div>
                     <label className="block text-sm font-medium text-gray-300">Username</label>
-                    <input type="text" name="user" value={formData.user || ''} onChange={handleChange} className="mt-1 block w-full px-3 py-2 bg-gray-700 border border-gray-600 rounded-md shadow-sm text-white" required />
+                    <input type="text" name="user" value={formData.user || ''} onChange={handleChange} className="mt-1 block w-full px-3 py-2 bg-gray-700 border border-gray-600 rounded-md shadow-sm text-white focus:outline-none focus:ring-indigo-500 focus:border-indigo-500" required />
+                </div>
+                 <div>
+                    <label className="block text-sm font-medium text-gray-300">Role</label>
+                    <select name="role" value={formData.role || UserRole.OPERATOR} onChange={handleChange} className="mt-1 block w-full px-3 py-2 bg-gray-700 border border-gray-600 text-white rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500" required>
+                        {Object.values(UserRole).map(r => <option key={r} value={r}>{r}</option>)}
+                    </select>
                 </div>
                 <div>
                     <label className="block text-sm font-medium text-gray-300">Password</label>
-                    <input type="password" name="password" value={formData.password || ''} onChange={handleChange} className="mt-1 block w-full px-3 py-2 bg-gray-700 border border-gray-600 rounded-md shadow-sm text-white" placeholder={user?.id ? "Kosongkan jika tidak diubah" : ""} required={!user?.id} />
+                    <input 
+                        type="password" 
+                        name="password" 
+                        value={passwordInput} 
+                        onChange={(e) => setPasswordInput(e.target.value)} 
+                        className="mt-1 block w-full px-3 py-2 bg-gray-700 border border-gray-600 rounded-md shadow-sm text-white focus:outline-none focus:ring-indigo-500 focus:border-indigo-500" 
+                        placeholder={user?.id ? "Kosongkan jika tidak ingin mengubah password" : "Masukkan password"} 
+                        required={!user?.id} 
+                    />
                 </div>
                 <div className="flex justify-end pt-4">
                     <button type="button" onClick={onClose} className="mr-2 px-4 py-2 bg-gray-600 text-gray-200 rounded-md hover:bg-gray-500">Batal</button>

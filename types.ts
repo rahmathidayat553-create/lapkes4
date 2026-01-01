@@ -45,6 +45,18 @@ export enum KehadiranStatus {
     ALPA = 'A'
 }
 
+export enum MapelKategori {
+    WAJIB = 'Wajib',
+    PILIHAN = 'Pilihan',
+    MULOK = 'Muatan Lokal'
+}
+
+export enum UserRole {
+    ADMIN = 'Admin',
+    STAFF = 'Staff',
+    OPERATOR = 'Operator'
+}
+
 export interface Notification {
     type: 'success' | 'error' | 'warning';
     message: string;
@@ -55,6 +67,7 @@ export interface User {
   nama: string;
   user: string;
   password?: string;
+  role: UserRole;
 }
 
 export interface IdentitasSekolah {
@@ -89,6 +102,7 @@ export interface Mapel {
   id: string;
   kd_mapel: string;
   nama_mapel: string;
+  kategori?: MapelKategori;
 }
 
 export interface PengajarMapel {
@@ -122,10 +136,7 @@ export interface Kelas {
 
 export interface KehadiranSiswaRecord {
     siswaId: string;
-    status: [
-        KehadiranStatus, KehadiranStatus, KehadiranStatus, KehadiranStatus, KehadiranStatus, 
-        KehadiranStatus, KehadiranStatus, KehadiranStatus, KehadiranStatus, KehadiranStatus
-    ];
+    status: KehadiranStatus[]; // Changed from fixed tuple to dynamic array
 }
 
 export interface KehadiranSiswa {
@@ -137,7 +148,9 @@ export interface KehadiranSiswa {
 
 export interface KehadiranGuruRecord {
     guruId: string;
+    namaGuru?: string; // Snapshot data
     mapelId: string;
+    namaMapel?: string; // Snapshot data
     jumlahPertemuan: number;
 }
 

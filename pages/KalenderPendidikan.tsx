@@ -30,6 +30,12 @@ const KalenderPendidikanPage: React.FC = () => {
     };
 
     const handleSave = (kal: KalenderPendidikan) => {
+        // Validasi Duplikat Tanggal
+        if (kalender.some(k => k.tanggal === kal.tanggal && k.id !== kal.id)) {
+            alert("Tanggal ini sudah memiliki agenda! Silakan pilih tanggal lain atau edit agenda yang sudah ada.");
+            return;
+        }
+
         setIsLoading(true);
         setTimeout(() => {
             if (kal.id) {
@@ -50,6 +56,15 @@ const KalenderPendidikanPage: React.FC = () => {
         }
     };
 
+    const getStatusBadgeClass = (status: StatusKalender) => {
+        switch (status) {
+            case StatusKalender.LIBUR: return "bg-red-900 text-red-200";
+            case StatusKalender.TIDAK_EFEKTIF: return "bg-yellow-900 text-yellow-200";
+            case StatusKalender.AKTIF: return "bg-green-900 text-green-200";
+            default: return "bg-gray-700 text-gray-200";
+        }
+    };
+
     return (
         <div>
             <div className="flex justify-between items-center mb-6">
@@ -67,7 +82,7 @@ const KalenderPendidikanPage: React.FC = () => {
                             <tr>
                                 <th className="px-6 py-3 text-left text-xs font-medium text-gray-300 uppercase tracking-wider">Tanggal</th>
                                 <th className="px-6 py-3 text-left text-xs font-medium text-gray-300 uppercase tracking-wider">Judul Agenda</th>
-                                <th className="px-6 py-3 text-left text-xs font-medium text-gray-300 uppercase tracking-wider">Status</th>
+                                <th className="px-6 py-3 text-center text-xs font-medium text-gray-300 uppercase tracking-wider">Status</th>
                                 <th className="px-6 py-3 text-left text-xs font-medium text-gray-300 uppercase tracking-wider">Keterangan</th>
                                 <th className="px-6 py-3 text-right text-xs font-medium text-gray-300 uppercase tracking-wider">Aksi</th>
                             </tr>
@@ -77,7 +92,11 @@ const KalenderPendidikanPage: React.FC = () => {
                                 <tr key={kal.id}>
                                     <td className="px-6 py-4 whitespace-nowrap text-gray-200">{new Date(kal.tanggal).toLocaleDateString('id-ID', { day: '2-digit', month: 'long', year: 'numeric' })}</td>
                                     <td className="px-6 py-4 whitespace-nowrap text-gray-200">{kal.judul}</td>
-                                    <td className="px-6 py-4 whitespace-nowrap text-gray-200">{kal.status}</td>
+                                    <td className="px-6 py-4 whitespace-nowrap text-center">
+                                        <span className={`px-2 py-1 inline-flex text-xs leading-5 font-semibold rounded-full ${getStatusBadgeClass(kal.status)}`}>
+                                            {kal.status}
+                                        </span>
+                                    </td>
                                     <td className="px-6 py-4 whitespace-nowrap text-gray-200">{kal.ket || '-'}</td>
                                     <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
                                         <button onClick={() => handleOpenModal(kal)} className="text-indigo-400 hover:text-indigo-300 mr-4">

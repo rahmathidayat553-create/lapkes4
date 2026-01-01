@@ -1,7 +1,7 @@
 
 import React, { useContext, useState } from 'react';
 import { DataContext } from '../context/DataContext';
-import { Mapel } from '../types';
+import { Mapel, MapelKategori } from '../types';
 import Modal from '../components/Modal';
 import { PlusIcon, EditIcon, DeleteIcon } from '../components/icons/Icons';
 
@@ -62,6 +62,7 @@ const DataMapelPage: React.FC = () => {
                             <tr>
                                 <th className="px-6 py-3 text-left text-xs font-medium text-gray-300 uppercase tracking-wider">Kode Mapel</th>
                                 <th className="px-6 py-3 text-left text-xs font-medium text-gray-300 uppercase tracking-wider">Nama Mapel</th>
+                                <th className="px-6 py-3 text-left text-xs font-medium text-gray-300 uppercase tracking-wider">Kategori</th>
                                 <th className="px-6 py-3 text-right text-xs font-medium text-gray-300 uppercase tracking-wider">Aksi</th>
                             </tr>
                         </thead>
@@ -70,6 +71,7 @@ const DataMapelPage: React.FC = () => {
                                 <tr key={mapel.id}>
                                     <td className="px-6 py-4 whitespace-nowrap">{mapel.kd_mapel}</td>
                                     <td className="px-6 py-4 whitespace-nowrap">{mapel.nama_mapel}</td>
+                                    <td className="px-6 py-4 whitespace-nowrap">{mapel.kategori || '-'}</td>
                                     <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
                                         <button onClick={() => handleOpenModal(mapel)} className="text-indigo-400 hover:text-indigo-300 mr-4"><EditIcon className="w-5 h-5" /></button>
                                         <button onClick={() => handleDelete(mapel.id)} className="text-red-400 hover:text-red-300"><DeleteIcon className="w-5 h-5" /></button>
@@ -87,6 +89,7 @@ const DataMapelPage: React.FC = () => {
                     onClose={handleCloseModal}
                     onSave={handleSave}
                     mapel={currentMapel}
+                    existingMapels={mapels}
                 />
             )}
         </div>
@@ -98,18 +101,32 @@ interface MapelFormProps {
     onClose: () => void;
     onSave: (mapel: Mapel) => void;
     mapel: Partial<Mapel> | null;
+    existingMapels: Mapel[];
 }
 
-const MapelForm: React.FC<MapelFormProps> = ({ isOpen, onClose, onSave, mapel }) => {
+const MapelForm: React.FC<MapelFormProps> = ({ isOpen, onClose, onSave, mapel, existingMapels }) => {
     const [formData, setFormData] = useState<Partial<Mapel>>(mapel || {});
+    const inputStyles = "mt-1 block w-full px-3 py-2 bg-gray-700 border border-gray-600 rounded-md shadow-sm text-white focus:outline-none focus:ring-indigo-500 focus:border-indigo-500";
 
-    const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
         const { name, value } = e.target;
         setFormData(prev => ({ ...prev, [name]: value }));
     };
 
     const handleSubmit = (e: React.FormEvent) => {
         e.preventDefault();
+        
+        // Prevent duplicate Kode Mapel
+        const isDuplicate = existingMapels.some(m => 
+            m.kd_mapel.toLowerCase() === formData.kd_mapel?.toLowerCase() && 
+            m.id !== mapel?.id
+        );
+
+        if (isDuplicate) {
+            alert(`Kode Mapel "${formData.kd_mapel}" sudah ada. Silakan gunakan kode lain.`);
+            return;
+        }
+
         if (formData.kd_mapel && formData.nama_mapel) {
             onSave(formData as Mapel);
         }
@@ -120,11 +137,18 @@ const MapelForm: React.FC<MapelFormProps> = ({ isOpen, onClose, onSave, mapel })
             <form onSubmit={handleSubmit} className="space-y-4">
                 <div>
                     <label className="block text-sm font-medium text-gray-300">Kode Mapel</label>
-                    <input type="text" name="kd_mapel" value={formData.kd_mapel || ''} onChange={handleChange} className="mt-1 block w-full px-3 py-2 bg-gray-700 border border-gray-600 rounded-md shadow-sm text-white focus:outline-none focus:ring-indigo-500 focus:border-indigo-500" required />
+                    <input type="text" name="kd_mapel" value={formData.kd_mapel || ''} onChange={handleChange} className={inputStyles} required />
                 </div>
                  <div>
                     <label className="block text-sm font-medium text-gray-300">Nama Mapel</label>
-                    <input type="text" name="nama_mapel" value={formData.nama_mapel || ''} onChange={handleChange} className="mt-1 block w-full px-3 py-2 bg-gray-700 border border-gray-600 rounded-md shadow-sm text-white focus:outline-none focus:ring-indigo-500 focus:border-indigo-500" required />
+                    <input type="text" name="nama_mapel" value={formData.nama_mapel || ''} onChange={handleChange} className={inputStyles} required />
+                </div>
+                <div>
+                    <label className="block text-sm font-medium text-gray-300">Kategori (Opsional)</label>
+                    <select name="kategori" value={formData.kategori || ''} onChange={handleChange} className={inputStyles}>
+                        <option value="">-- Pilih Kategori --</option>
+                        {Object.values(MapelKategori).map(k => <option key={k} value={k}>{k}</option>)}
+                    </select>
                 </div>
                 <div className="flex justify-end pt-4">
                     <button type="button" onClick={onClose} className="mr-2 px-4 py-2 bg-gray-600 text-gray-200 rounded-md hover:bg-gray-500">Batal</button>

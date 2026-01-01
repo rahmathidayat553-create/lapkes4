@@ -1,8 +1,9 @@
 
 import React, { useState, useContext, useEffect, useMemo } from 'react';
 import { DataContext } from '../context/DataContext';
-import { KehadiranGuru, KehadiranGuruRecord, KehadiranSiswa, KehadiranSiswaRecord, KehadiranStatus } from '../types';
+import { KehadiranGuru, KehadiranGuruRecord, KehadiranSiswa, KehadiranSiswaRecord, KehadiranStatus, HariFormat } from '../types';
 import Modal from '../components/Modal';
+import { DeleteIcon } from '../components/icons/Icons';
 
 const InputKehadiranSiswaPage: React.FC = () => {
     const context = useContext(DataContext);
@@ -12,7 +13,15 @@ const InputKehadiranSiswaPage: React.FC = () => {
     const [guruHadirCount, setGuruHadirCount] = useState<number>(1);
     const [guruKehadiran, setGuruKehadiran] = useState<Partial<KehadiranGuruRecord>[]>([{}]);
     const [isConfirmModalOpen, setIsConfirmModalOpen] = useState(false);
+    const [isEditMode, setIsEditMode] = useState(false);
+    
     const inputStyles = "mt-1 block w-full px-3 py-2 bg-gray-700 border border-gray-600 rounded-md shadow-sm text-white focus:outline-none focus:ring-indigo-500 focus:border-indigo-500";
+
+    if (!context) return <div>Loading...</div>;
+    const { kelasList, gurus, mapels, setKehadiranSiswa, setKehadiranGuru, kehadiranSiswa, kehadiranGuru, identitasSekolah, setIsLoading, setNotification } = context;
+
+    // Menentukan jumlah pertemuan berdasarkan format hari sekolah
+    const jumlahPertemuan = identitasSekolah.format === HariFormat.LIMA ? 5 : 6;
 
     const availablePengajar = useMemo(() => {
         if (!context || !selectedKelasId) return [];
@@ -24,24 +33,73 @@ const InputKehadiranSiswaPage: React.FC = () => {
         return context.siswas.filter(s => s.kelasId === selectedKelasId && !s.mutasi);
     }, [context, selectedKelasId]);
     
+    // EFFECT: Load Data or Reset based on selection
     useEffect(() => {
-        if (studentsInClass.length > 0) {
-            const defaultKehadiran = studentsInClass.map(s => ({
-                siswaId: s.id,
-                status: Array(10).fill(KehadiranStatus.HADIR) as [KehadiranStatus,KehadiranStatus,KehadiranStatus,KehadiranStatus,KehadiranStatus,KehadiranStatus,KehadiranStatus,KehadiranStatus,KehadiranStatus,KehadiranStatus]
-            }));
-            setSiswaKehadiran(defaultKehadiran);
-        } else {
-            setSiswaKehadiran([]);
-        }
-    }, [studentsInClass]);
+        if (!selectedKelasId || !tanggal) return;
 
+        const idToCheck = `${selectedKelasId}-${tanggal}`;
+        const existingSiswaData = kehadiranSiswa.find(k => k.id === idToCheck);
+        const existingGuruData = kehadiranGuru.find(k => k.id === idToCheck);
+
+        if (existingSiswaData) {
+            // MODE EDIT: Data ditemukan
+            setIsEditMode(true);
+            
+            // Map existing status to current students (handle students added after record creation)
+            const mappedKehadiran = studentsInClass.map(s => {
+                const record = existingSiswaData.kehadiran.find(r => r.siswaId === s.id);
+                return {
+                    siswaId: s.id,
+                    status: record ? record.status : Array(jumlahPertemuan).fill(KehadiranStatus.HADIR) as KehadiranStatus[]
+                };
+            });
+            setSiswaKehadiran(mappedKehadiran);
+
+            if (existingGuruData) {
+                setGuruKehadiran(existingGuruData.kehadiran);
+                setGuruHadirCount(existingGuruData.kehadiran.length);
+            } else {
+                setGuruKehadiran([{}]);
+                setGuruHadirCount(1);
+            }
+
+        } else {
+            // MODE BARU: Data tidak ditemukan
+            setIsEditMode(false);
+            if (studentsInClass.length > 0) {
+                const defaultKehadiran = studentsInClass.map(s => ({
+                    siswaId: s.id,
+                    status: Array(jumlahPertemuan).fill(KehadiranStatus.HADIR) as KehadiranStatus[]
+                }));
+                setSiswaKehadiran(defaultKehadiran);
+            } else {
+                setSiswaKehadiran([]);
+            }
+            // Reset guru form
+            setGuruKehadiran([{}]);
+            setGuruHadirCount(1);
+        }
+
+    }, [selectedKelasId, tanggal, studentsInClass, kehadiranSiswa, kehadiranGuru, jumlahPertemuan]);
+
+
+    // Effect untuk mengatur jumlah baris input guru saat count berubah (hanya jika manual change, bukan saat load edit)
     useEffect(() => {
-        setGuruKehadiran(Array(guruHadirCount).fill({}));
+        if (guruKehadiran.length !== guruHadirCount) {
+             setGuruKehadiran(prev => {
+                const newArr = [...prev];
+                if (guruHadirCount > prev.length) {
+                    for (let i = prev.length; i < guruHadirCount; i++) {
+                        newArr.push({});
+                    }
+                } else {
+                    newArr.splice(guruHadirCount);
+                }
+                return newArr;
+             });
+        }
     }, [guruHadirCount]);
 
-    if (!context) return <div>Loading...</div>;
-    const { kelasList, gurus, mapels, setKehadiranSiswa, setKehadiranGuru, kehadiranSiswa, kehadiranGuru, setIsLoading, setNotification } = context;
 
     const resetForm = () => {
         setSelectedKelasId('');
@@ -49,17 +107,32 @@ const InputKehadiranSiswaPage: React.FC = () => {
         setSiswaKehadiran([]);
         setGuruHadirCount(1);
         setGuruKehadiran([{}]);
+        setIsEditMode(false);
     }
 
     const handleSiswaStatusChange = (siswaId: string, pertemuanIndex: number, status: KehadiranStatus) => {
         setSiswaKehadiran(prev => prev.map(s => {
             if (s.siswaId === siswaId) {
-                const newStatus = [...s.status] as [KehadiranStatus,KehadiranStatus,KehadiranStatus,KehadiranStatus,KehadiranStatus,KehadiranStatus,KehadiranStatus,KehadiranStatus,KehadiranStatus,KehadiranStatus];
+                const newStatus = [...s.status];
                 newStatus[pertemuanIndex] = status;
                 return { ...s, status: newStatus };
             }
             return s;
         }));
+    };
+
+    // Fungsi untuk mengubah status semua siswa sekaligus
+    const handleMarkAll = (status: KehadiranStatus) => {
+        if (siswaKehadiran.length === 0) return;
+
+        if (!window.confirm(`Apakah Anda yakin ingin menandai SEMUA siswa sebagai ${status} untuk semua pertemuan?`)) return;
+
+        setSiswaKehadiran(prev => prev.map(s => ({
+            ...s,
+            status: s.status.map(() => status)
+        })));
+        
+        setNotification({ type: 'success', message: `Semua siswa ditandai sebagai ${status}.` });
     };
 
     const handleGuruChange = (index: number, field: keyof KehadiranGuruRecord, value: string | number) => {
@@ -73,6 +146,17 @@ const InputKehadiranSiswaPage: React.FC = () => {
     const handleAttemptSave = () => {
         if (!selectedKelasId || !tanggal) {
             setNotification({type: 'warning', message: "Harap pilih kelas dan tanggal terlebih dahulu."});
+            return;
+        }
+
+        // Jika mode baru (bukan edit), cek duplikat
+        const idToCheck = `${selectedKelasId}-${tanggal}`;
+        if (!isEditMode && kehadiranSiswa.some(k => k.id === idToCheck)) {
+            setNotification({ type: 'error', message: "Data kehadiran untuk kelas dan tanggal ini sudah ada! Halaman akan direfresh." });
+            // Fallback safety re-trigger effect
+            const temp = selectedKelasId;
+            setSelectedKelasId('');
+            setTimeout(() => setSelectedKelasId(temp), 10);
             return;
         }
 
@@ -90,43 +174,69 @@ const InputKehadiranSiswaPage: React.FC = () => {
         setIsLoading(true);
 
         setTimeout(() => {
+            const id = `${selectedKelasId}-${tanggal}`;
+            
             const newKehadiranSiswa: KehadiranSiswa = {
-                id: `${selectedKelasId}-${tanggal}`,
+                id,
                 kelasId: selectedKelasId,
                 tanggal,
                 kehadiran: siswaKehadiran,
             };
             
+            const enrichedGuruKehadiran: KehadiranGuruRecord[] = guruKehadiran
+                .filter(g => g.guruId && g.mapelId)
+                .map(g => ({
+                    guruId: g.guruId!,
+                    mapelId: g.mapelId!,
+                    jumlahPertemuan: g.jumlahPertemuan || 0,
+                    namaGuru: gurus.find(guru => guru.id === g.guruId)?.nama_guru || 'Unknown',
+                    namaMapel: mapels.find(mapel => mapel.id === g.mapelId)?.nama_mapel || 'Unknown'
+                }));
+
             const newKehadiranGuru: KehadiranGuru = {
-                 id: `${selectedKelasId}-${tanggal}`,
+                id,
                 kelasId: selectedKelasId,
                 tanggal,
-                kehadiran: guruKehadiran.filter(g => g.guruId && g.mapelId) as KehadiranGuruRecord[],
+                kehadiran: enrichedGuruKehadiran,
             };
             
-            const existingSiswaIndex = kehadiranSiswa.findIndex(k => k.id === newKehadiranSiswa.id);
-            if (existingSiswaIndex > -1) {
-                const updated = [...kehadiranSiswa];
-                updated[existingSiswaIndex] = newKehadiranSiswa;
-                setKehadiranSiswa(updated);
+            if (isEditMode) {
+                // UPDATE Existing Data
+                setKehadiranSiswa(prev => prev.map(k => k.id === id ? newKehadiranSiswa : k));
+                setKehadiranGuru(prev => prev.map(k => k.id === id ? newKehadiranGuru : k));
+                setNotification({type: 'success', message: 'Data kehadiran berhasil diperbarui!'});
             } else {
-                setKehadiranSiswa([...kehadiranSiswa, newKehadiranSiswa]);
-            }
-            
-            const existingGuruIndex = kehadiranGuru.findIndex(k => k.id === newKehadiranGuru.id);
-            if (existingGuruIndex > -1) {
-                const updated = [...kehadiranGuru];
-                updated[existingGuruIndex] = newKehadiranGuru;
-                setKehadiranGuru(updated);
-            } else {
-                setKehadiranGuru([...kehadiranGuru, newKehadiranGuru]);
+                // INSERT New Data
+                setKehadiranSiswa(prev => [...prev, newKehadiranSiswa]);
+                setKehadiranGuru(prev => [...prev, newKehadiranGuru]);
+                setNotification({type: 'success', message: 'Data kehadiran berhasil disimpan!'});
             }
             
             setIsLoading(false);
-            setNotification({type: 'success', message: 'Data kehadiran berhasil disimpan!'});
             resetForm();
 
-        }, 1000);
+        }, 800);
+    };
+    
+    const handleDeleteKehadiran = () => {
+        if (!window.confirm("Apakah Anda yakin ingin menghapus data kehadiran untuk tanggal ini? Data tidak dapat dikembalikan.")) return;
+        
+        const idToDelete = `${selectedKelasId}-${tanggal}`;
+        setIsLoading(true);
+        setTimeout(() => {
+             setKehadiranSiswa(prev => prev.filter(k => k.id !== idToDelete));
+             setKehadiranGuru(prev => prev.filter(k => k.id !== idToDelete));
+             setIsLoading(false);
+             setNotification({type: 'success', message: 'Data kehadiran berhasil dihapus.'});
+             resetForm();
+        }, 500);
+    };
+
+    // Helper untuk menghitung statistik status
+    const countStatus = (status: KehadiranStatus) => {
+        return siswaKehadiran.reduce((total, record) => {
+            return total + record.status.filter(s => s === status).length;
+        }, 0);
     };
 
     return (
@@ -160,15 +270,75 @@ const InputKehadiranSiswaPage: React.FC = () => {
 
             {selectedKelasId && (
                 <>
+                    {isEditMode && (
+                        <div className="bg-yellow-900 bg-opacity-50 border-l-4 border-yellow-500 text-yellow-200 p-4 mb-6 rounded-r">
+                            <div className="flex justify-between items-center">
+                                <div>
+                                    <p className="font-bold">⚠️ Mode Edit Aktif</p>
+                                    <p className="text-sm">Anda sedang mengubah data kehadiran yang sudah ada untuk tanggal {new Date(tanggal).toLocaleDateString('id-ID')}.</p>
+                                </div>
+                                <button 
+                                    onClick={handleDeleteKehadiran}
+                                    className="flex items-center px-3 py-1 bg-red-700 hover:bg-red-800 text-white rounded text-sm font-medium transition-colors"
+                                >
+                                    <DeleteIcon className="w-4 h-4 mr-1" /> Hapus Data
+                                </button>
+                            </div>
+                        </div>
+                    )}
+
                     <div className="bg-gray-800 p-6 rounded-lg shadow-md mb-6">
-                        <h2 className="text-xl font-semibold mb-4 text-gray-100">Absensi Siswa: {kelasList.find(k=>k.id === selectedKelasId)?.nama_kelas}</h2>
+                        <div className="flex flex-col md:flex-row justify-between items-end mb-4 gap-4">
+                            <div>
+                                <h2 className="text-xl font-semibold text-gray-100">
+                                    Absensi Siswa: {kelasList.find(k=>k.id === selectedKelasId)?.nama_kelas}
+                                </h2>
+                                <div className="text-sm text-gray-400">
+                                    Format: {identitasSekolah.format} ({jumlahPertemuan} Pertemuan)
+                                </div>
+                            </div>
+                            
+                            {/* Tombol Bulk Update */}
+                            <div className="flex flex-wrap gap-2">
+                                <span className="self-center text-sm text-gray-400 mr-2">Set Semua:</span>
+                                <button 
+                                    onClick={() => handleMarkAll(KehadiranStatus.HADIR)} 
+                                    className="px-3 py-1 bg-green-700 text-green-100 rounded-md hover:bg-green-600 text-sm font-medium transition-colors"
+                                    type="button"
+                                >
+                                    Hadir
+                                </button>
+                                <button 
+                                    onClick={() => handleMarkAll(KehadiranStatus.SAKIT)} 
+                                    className="px-3 py-1 bg-blue-700 text-blue-100 rounded-md hover:bg-blue-600 text-sm font-medium transition-colors"
+                                    type="button"
+                                >
+                                    Sakit
+                                </button>
+                                <button 
+                                    onClick={() => handleMarkAll(KehadiranStatus.IJIN)} 
+                                    className="px-3 py-1 bg-yellow-700 text-yellow-100 rounded-md hover:bg-yellow-600 text-sm font-medium transition-colors"
+                                    type="button"
+                                >
+                                    Izin
+                                </button>
+                                <button 
+                                    onClick={() => handleMarkAll(KehadiranStatus.ALPA)} 
+                                    className="px-3 py-1 bg-red-700 text-red-100 rounded-md hover:bg-red-600 text-sm font-medium transition-colors"
+                                    type="button"
+                                >
+                                    Alpa
+                                </button>
+                            </div>
+                        </div>
+                        
                         <div className="overflow-x-auto">
                             <table className="min-w-full text-center">
                                 <thead className="bg-gray-700">
                                     <tr>
                                         <th className="px-2 py-2 border border-gray-600 whitespace-nowrap">No</th>
                                         <th className="px-4 py-2 border border-gray-600 text-left whitespace-nowrap">Nama Siswa</th>
-                                        {Array.from({ length: 10 }).map((_, i) => (
+                                        {Array.from({ length: jumlahPertemuan }).map((_, i) => (
                                             <th key={i} className="px-2 py-2 border border-gray-600 w-12 whitespace-nowrap">{i + 1}</th>
                                         ))}
                                     </tr>
@@ -178,7 +348,7 @@ const InputKehadiranSiswaPage: React.FC = () => {
                                         <tr key={siswa.id} className="bg-gray-800">
                                             <td className="px-2 py-2 border border-gray-600 whitespace-nowrap">{siswaIndex + 1}</td>
                                             <td className="px-4 py-2 border border-gray-600 text-left whitespace-nowrap">{siswa.nama_siswa}</td>
-                                            {Array.from({ length: 10 }).map((_, pertemuanIndex) => (
+                                            {Array.from({ length: jumlahPertemuan }).map((_, pertemuanIndex) => (
                                                 <td key={pertemuanIndex} className="px-2 py-2 border border-gray-600 whitespace-nowrap">
                                                     <select
                                                         value={siswaKehadiran[siswaIndex]?.status[pertemuanIndex] || KehadiranStatus.HADIR}
@@ -198,6 +368,17 @@ const InputKehadiranSiswaPage: React.FC = () => {
                                     ))}
                                 </tbody>
                             </table>
+                        </div>
+                        
+                        {/* Summary Section */}
+                        <div className="mt-4 p-3 bg-gray-700 rounded-md border border-gray-600">
+                            <h3 className="text-sm font-semibold text-gray-300 mb-2">Ringkasan Kehadiran Hari Ini:</h3>
+                            <div className="flex space-x-6 text-sm font-bold">
+                                <span className="text-green-400">Total Hadir: {countStatus(KehadiranStatus.HADIR)}</span>
+                                <span className="text-blue-400">Total Sakit: {countStatus(KehadiranStatus.SAKIT)}</span>
+                                <span className="text-yellow-400">Total Izin: {countStatus(KehadiranStatus.IJIN)}</span>
+                                <span className="text-red-400">Total Alpa: {countStatus(KehadiranStatus.ALPA)}</span>
+                            </div>
                         </div>
                     </div>
 
@@ -265,18 +446,28 @@ const InputKehadiranSiswaPage: React.FC = () => {
                     <div className="mt-6 flex justify-end">
                         <button
                             onClick={handleAttemptSave}
-                            className="px-6 py-3 text-white bg-indigo-600 rounded-md hover:bg-indigo-700 font-bold"
+                            className={`px-6 py-3 text-white rounded-md font-bold transition-colors ${
+                                isEditMode 
+                                ? 'bg-yellow-600 hover:bg-yellow-700' 
+                                : 'bg-indigo-600 hover:bg-indigo-700'
+                            }`}
                         >
-                            SIMPAN KEHADIRAN
+                            {isEditMode ? 'UPDATE KEHADIRAN' : 'SIMPAN KEHADIRAN'}
                         </button>
                     </div>
                 </>
             )}
-             <Modal isOpen={isConfirmModalOpen} onClose={() => setIsConfirmModalOpen(false)} title="Konfirmasi Penyimpanan">
-                <p className="text-gray-300">Yakin anda ingin menyimpan data kehadiran ini?</p>
+             <Modal isOpen={isConfirmModalOpen} onClose={() => setIsConfirmModalOpen(false)} title={isEditMode ? "Konfirmasi Update" : "Konfirmasi Penyimpanan"}>
+                <p className="text-gray-300">
+                    {isEditMode 
+                        ? "Yakin anda ingin mengubah data kehadiran ini? Data lama akan ditimpa." 
+                        : "Yakin anda ingin menyimpan data kehadiran ini?"}
+                </p>
                 <div className="flex justify-end pt-4 mt-4">
                     <button type="button" onClick={() => setIsConfirmModalOpen(false)} className="mr-2 px-4 py-2 bg-gray-600 text-gray-200 rounded-md hover:bg-gray-500">Batal</button>
-                    <button type="button" onClick={handleConfirmSave} className="px-4 py-2 bg-indigo-600 text-white rounded-md hover:bg-indigo-700">Ya, Simpan</button>
+                    <button type="button" onClick={handleConfirmSave} className={`px-4 py-2 text-white rounded-md ${isEditMode ? 'bg-yellow-600 hover:bg-yellow-700' : 'bg-indigo-600 hover:bg-indigo-700'}`}>
+                        {isEditMode ? 'Ya, Update' : 'Ya, Simpan'}
+                    </button>
                 </div>
             </Modal>
         </div>

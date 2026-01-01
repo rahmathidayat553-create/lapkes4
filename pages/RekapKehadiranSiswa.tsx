@@ -63,6 +63,12 @@ const RekapKehadiranSiswaPage: React.FC = () => {
 
     }, [kehadiranSiswa, filterKelas, filterTipe, startDate, endDate, selectedMonth, siswas, kelasList]);
 
+    // Helper to calculate percentage
+    const calculatePercentage = (H: number, S: number, I: number, A: number) => {
+        const total = H + S + I + A;
+        return total > 0 ? ((H / total) * 100).toFixed(1) + '%' : '0.0%';
+    };
+
     const exportToPDF = () => {
         const doc = new jsPDF();
         doc.text("Rekap Kehadiran Siswa", 14, 16);
@@ -73,11 +79,12 @@ const RekapKehadiranSiswaPage: React.FC = () => {
             d.H,
             d.S,
             d.I,
-            d.A
+            d.A,
+            calculatePercentage(d.H, d.S, d.I, d.A)
         ]);
 
         (doc as any).autoTable({
-            head: [['Nama Siswa', 'Kelas', 'Hadir', 'Sakit', 'Izin', 'Alpa']],
+            head: [['Nama Siswa', 'Kelas', 'Hadir', 'Sakit', 'Izin', 'Alpa', '% Hadir']],
             body: tableData,
             startY: 20,
         });
@@ -92,6 +99,7 @@ const RekapKehadiranSiswaPage: React.FC = () => {
             "Sakit": d.S,
             "Izin": d.I,
             "Alpa": d.A,
+            "Persentase": calculatePercentage(d.H, d.S, d.I, d.A)
         })));
         const workbook = XLSX.utils.book_new();
         XLSX.utils.book_append_sheet(workbook, worksheet, "Kehadiran Siswa");
@@ -145,32 +153,40 @@ const RekapKehadiranSiswaPage: React.FC = () => {
             </div>
 
             <div className="bg-gray-800 p-6 rounded-lg shadow-md">
-                <div className="overflow-x-auto">
-                    <table className="min-w-full divide-y divide-gray-700">
-                        <thead className="bg-gray-700">
-                            <tr>
-                                <th className="px-6 py-3 text-left text-xs font-medium text-gray-300 uppercase tracking-wider whitespace-nowrap">Nama Siswa</th>
-                                <th className="px-6 py-3 text-left text-xs font-medium text-gray-300 uppercase tracking-wider whitespace-nowrap">Kelas</th>
-                                <th className="px-6 py-3 text-center text-xs font-medium text-gray-300 uppercase tracking-wider whitespace-nowrap">Hadir</th>
-                                <th className="px-6 py-3 text-center text-xs font-medium text-gray-300 uppercase tracking-wider whitespace-nowrap">Sakit</th>
-                                <th className="px-6 py-3 text-center text-xs font-medium text-gray-300 uppercase tracking-wider whitespace-nowrap">Izin</th>
-                                <th className="px-6 py-3 text-center text-xs font-medium text-gray-300 uppercase tracking-wider whitespace-nowrap">Alpa</th>
-                            </tr>
-                        </thead>
-                        <tbody className="bg-gray-800 divide-y divide-gray-700">
-                            {filteredData.map(({ siswa, kelas, H, S, I, A }) => (
-                                <tr key={siswa?.id} className="hover:bg-gray-700">
-                                    <td className="px-6 py-4 whitespace-nowrap">{siswa?.nama_siswa}</td>
-                                    <td className="px-6 py-4 whitespace-nowrap">{kelas?.nama_kelas}</td>
-                                    <td className="px-6 py-4 text-center whitespace-nowrap">{H}</td>
-                                    <td className="px-6 py-4 text-center whitespace-nowrap">{S}</td>
-                                    <td className="px-6 py-4 text-center whitespace-nowrap">{I}</td>
-                                    <td className="px-6 py-4 text-center whitespace-nowrap">{A}</td>
+                {filteredData.length === 0 ? (
+                    <p className="text-gray-400 mt-2 text-center">Belum ada data kehadiran untuk periode ini.</p>
+                ) : (
+                    <div className="overflow-x-auto">
+                        <table className="min-w-full divide-y divide-gray-700">
+                            <thead className="bg-gray-700">
+                                <tr>
+                                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-300 uppercase tracking-wider whitespace-nowrap">Nama Siswa</th>
+                                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-300 uppercase tracking-wider whitespace-nowrap">Kelas</th>
+                                    <th className="px-6 py-3 text-center text-xs font-medium text-gray-300 uppercase tracking-wider whitespace-nowrap">Hadir</th>
+                                    <th className="px-6 py-3 text-center text-xs font-medium text-gray-300 uppercase tracking-wider whitespace-nowrap">Sakit</th>
+                                    <th className="px-6 py-3 text-center text-xs font-medium text-gray-300 uppercase tracking-wider whitespace-nowrap">Izin</th>
+                                    <th className="px-6 py-3 text-center text-xs font-medium text-gray-300 uppercase tracking-wider whitespace-nowrap">Alpa</th>
+                                    <th className="px-6 py-3 text-center text-xs font-medium text-gray-300 uppercase tracking-wider whitespace-nowrap">% Hadir</th>
                                 </tr>
-                            ))}
-                        </tbody>
-                    </table>
-                </div>
+                            </thead>
+                            <tbody className="bg-gray-800 divide-y divide-gray-700">
+                                {filteredData.map(({ siswa, kelas, H, S, I, A }) => (
+                                    <tr key={siswa?.id} className="hover:bg-gray-700">
+                                        <td className="px-6 py-4 whitespace-nowrap">{siswa?.nama_siswa}</td>
+                                        <td className="px-6 py-4 whitespace-nowrap">{kelas?.nama_kelas}</td>
+                                        <td className="px-6 py-4 text-center whitespace-nowrap">{H}</td>
+                                        <td className="px-6 py-4 text-center whitespace-nowrap">{S}</td>
+                                        <td className="px-6 py-4 text-center whitespace-nowrap">{I}</td>
+                                        <td className="px-6 py-4 text-center whitespace-nowrap">{A}</td>
+                                        <td className="px-6 py-4 text-center whitespace-nowrap font-bold text-indigo-400">
+                                            {calculatePercentage(H, S, I, A)}
+                                        </td>
+                                    </tr>
+                                ))}
+                            </tbody>
+                        </table>
+                    </div>
+                )}
             </div>
         </div>
     );

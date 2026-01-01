@@ -27,6 +27,13 @@ const IdentitasSekolahPage: React.FC = () => {
     const handleLogoChange = (e: React.ChangeEvent<HTMLInputElement>) => {
         const file = e.target.files?.[0];
         if (file) {
+            // Validasi ukuran file maks 2MB
+            if (file.size > 2 * 1024 * 1024) {
+                alert("Ukuran file logo maksimal 2MB");
+                e.target.value = ''; // Reset input
+                return;
+            }
+
             const reader = new FileReader();
             reader.onloadend = () => {
                 setFormData(prev => ({ ...prev, logo: reader.result as string }));
@@ -37,9 +44,22 @@ const IdentitasSekolahPage: React.FC = () => {
 
     const handleSubmit = (e: React.FormEvent) => {
         e.preventDefault();
+
+        // Validasi NPSN (8 digit angka)
+        if (!/^\d{8}$/.test(formData.npsn)) {
+            alert("NPSN harus terdiri dari 8 digit angka!");
+            return;
+        }
+
         setIsLoading(true);
         setTimeout(() => {
-            setIdentitasSekolah(formData);
+            // Gunakan UUID jika ID masih default '1'
+            const finalData = { ...formData };
+            if (finalData.id === '1') {
+                finalData.id = crypto.randomUUID();
+            }
+
+            setIdentitasSekolah(finalData);
             setIsLoading(false);
             setNotification({ type: 'success', message: 'Data identitas sekolah berhasil diperbarui!' });
         }, 500);
@@ -56,8 +76,8 @@ const IdentitasSekolahPage: React.FC = () => {
                             <input type="text" name="nama_sekolah" value={formData.nama_sekolah} onChange={handleChange} className="mt-1 block w-full px-3 py-2 bg-gray-700 border border-gray-600 rounded-md shadow-sm text-white focus:outline-none focus:ring-indigo-500 focus:border-indigo-500" required/>
                         </div>
                         <div>
-                            <label className="block text-sm font-medium text-gray-300">NPSN</label>
-                            <input type="text" name="npsn" value={formData.npsn} onChange={handleChange} className="mt-1 block w-full px-3 py-2 bg-gray-700 border border-gray-600 rounded-md shadow-sm text-white focus:outline-none focus:ring-indigo-500 focus:border-indigo-500" required/>
+                            <label className="block text-sm font-medium text-gray-300">NPSN (8 Digit Angka)</label>
+                            <input type="text" name="npsn" value={formData.npsn} onChange={handleChange} className="mt-1 block w-full px-3 py-2 bg-gray-700 border border-gray-600 rounded-md shadow-sm text-white focus:outline-none focus:ring-indigo-500 focus:border-indigo-500" required maxLength={8}/>
                         </div>
                         <div>
                             <label className="block text-sm font-medium text-gray-300">Jenjang</label>
@@ -84,7 +104,7 @@ const IdentitasSekolahPage: React.FC = () => {
                             <textarea name="alamat" value={formData.alamat} onChange={handleChange} rows={3} className="mt-1 block w-full px-3 py-2 bg-gray-700 border border-gray-600 rounded-md shadow-sm text-white focus:outline-none focus:ring-indigo-500 focus:border-indigo-500" required></textarea>
                         </div>
                          <div className="md:col-span-2">
-                            <label className="block text-sm font-medium text-gray-300">Logo Sekolah</label>
+                            <label className="block text-sm font-medium text-gray-300">Logo Sekolah (Maks 2MB)</label>
                             <div className="mt-1 flex items-center space-x-4">
                                 {formData.logo && <img src={formData.logo} alt="Logo" className="h-16 w-16 object-contain rounded-md border border-gray-600" />}
                                 <input type="file" accept="image/*" onChange={handleLogoChange} className="block w-full text-sm text-gray-400 file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-sm file:font-semibold file:bg-indigo-500 file:text-white hover:file:bg-indigo-600"/>

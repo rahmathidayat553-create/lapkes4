@@ -12,7 +12,7 @@ const DataPengajarMapelPage: React.FC = () => {
 
     if (!context) return <div>Loading...</div>;
 
-    const { pengajarMapels, setPengajarMapels, gurus, mapels, kelasList, setIsLoading, setNotification } = context;
+    const { pengajarMapels, setPengajarMapels, gurus, mapels, kelasList, kehadiranGuru, setIsLoading, setNotification } = context;
 
     const handleOpenModal = (data: Partial<PengajarMapel> | null = null) => {
         setCurrentData(data || {});
@@ -39,6 +39,20 @@ const DataPengajarMapelPage: React.FC = () => {
     };
 
     const handleDelete = (id: string) => {
+        const pengajar = pengajarMapels.find(p => p.id === id);
+        if (!pengajar) return;
+
+        // Cek apakah data pengajar ini sudah digunakan dalam riwayat kehadiran guru
+        const isUsed = kehadiranGuru.some(k => 
+            k.kelasId === pengajar.kelasId && 
+            k.kehadiran.some(g => g.guruId === pengajar.guruId && g.mapelId === pengajar.mapelId)
+        );
+
+        if (isUsed) {
+            setNotification({ type: 'warning', message: 'Data tidak dapat dihapus karena sudah ada riwayat kehadiran terkait.' });
+            return;
+        }
+
         if (window.confirm("Apakah Anda yakin ingin menghapus data ini?")) {
             setPengajarMapels(pengajarMapels.filter(p => p.id !== id));
             setNotification({ type: 'success', message: 'Data pengajar berhasil dihapus.' });
@@ -135,6 +149,13 @@ const PengajarMapelForm: React.FC<FormProps> = ({ isOpen, onClose, onSave, data,
 
     const handleSubmit = (e: React.FormEvent) => {
         e.preventDefault();
+        
+        // Validasi Jumlah Pertemuan
+        if (formData.jp !== undefined && formData.jp < 1) {
+            alert("Jumlah pertemuan minimal 1!");
+            return;
+        }
+
         if (formData.mapelId && formData.guruId && formData.kelasId && formData.jp) {
             onSave(formData as PengajarMapel);
         }
