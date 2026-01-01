@@ -1,0 +1,5 @@
+{
+  "name": "LapKes - Laporan Kesiswaan",
+  "description": "A web application for managing student and school data, including attendance, teacher schedules, and student transfers, designed for local deployment.",
+  "requestFramePermissions": []
+}
