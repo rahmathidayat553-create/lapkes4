@@ -55,6 +55,7 @@ const initialIdentitas: IdentitasSekolah = {
     alamat: 'Jl. Pendidikan No. 1, Jakarta',
     logo: '',
     format: HariFormat.LIMA,
+    jumlahPertemuanPerHari: 8, // Default 8 JP
 };
 
 export const DataProvider: React.FC<{ children: ReactNode }> = ({ children }) => {

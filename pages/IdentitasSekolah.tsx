@@ -6,12 +6,16 @@ import { IdentitasSekolah, Jenjang, HariFormat } from '../types';
 const IdentitasSekolahPage: React.FC = () => {
     const context = useContext(DataContext);
     const [formData, setFormData] = useState<IdentitasSekolah>({
-        id: '1', npsn: '', nama_sekolah: '', jenjang: Jenjang.SMA, nama_kepsek: '', nama_wakasek: '', alamat: '', logo: '', format: HariFormat.LIMA
+        id: '1', npsn: '', nama_sekolah: '', jenjang: Jenjang.SMA, nama_kepsek: '', nama_wakasek: '', alamat: '', logo: '', format: HariFormat.LIMA, jumlahPertemuanPerHari: 8
     });
 
     useEffect(() => {
         if (context?.identitasSekolah) {
-            setFormData(context.identitasSekolah);
+            // Ensure jumlahPertemuanPerHari exists (backward compatibility)
+            setFormData({
+                ...context.identitasSekolah,
+                jumlahPertemuanPerHari: context.identitasSekolah.jumlahPertemuanPerHari || 8
+            });
         }
     }, [context?.identitasSekolah]);
 
@@ -21,7 +25,10 @@ const IdentitasSekolahPage: React.FC = () => {
 
     const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>) => {
         const { name, value } = e.target;
-        setFormData(prev => ({ ...prev, [name]: value }));
+        setFormData(prev => ({ 
+            ...prev, 
+            [name]: name === 'jumlahPertemuanPerHari' ? parseInt(value) : value 
+        }));
     };
 
     const handleLogoChange = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -48,6 +55,12 @@ const IdentitasSekolahPage: React.FC = () => {
         // Validasi NPSN (8 digit angka)
         if (!/^\d{8}$/.test(formData.npsn)) {
             alert("NPSN harus terdiri dari 8 digit angka!");
+            return;
+        }
+
+        // Validasi Jumlah Pertemuan
+        if (formData.jumlahPertemuanPerHari < 1 || formData.jumlahPertemuanPerHari > 20) {
+            alert("Jumlah Pertemuan per Hari harus antara 1 sampai 20 JP.");
             return;
         }
 
@@ -90,6 +103,20 @@ const IdentitasSekolahPage: React.FC = () => {
                             <select name="format" value={formData.format} onChange={handleChange} className="mt-1 block w-full px-3 py-2 bg-gray-700 border border-gray-600 text-white rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500">
                                 {Object.values(HariFormat).map(f => <option key={f} value={f}>{f}</option>)}
                             </select>
+                        </div>
+                        <div>
+                            <label className="block text-sm font-medium text-gray-300">Jumlah Pertemuan Per Hari (JP)</label>
+                            <input 
+                                type="number" 
+                                name="jumlahPertemuanPerHari" 
+                                value={formData.jumlahPertemuanPerHari} 
+                                onChange={handleChange} 
+                                min="1" 
+                                max="20"
+                                className="mt-1 block w-full px-3 py-2 bg-gray-700 border border-gray-600 rounded-md shadow-sm text-white focus:outline-none focus:ring-indigo-500 focus:border-indigo-500" 
+                                required
+                            />
+                            <p className="text-xs text-gray-400 mt-1">Rentang: 1 - 20 JP</p>
                         </div>
                         <div>
                             <label className="block text-sm font-medium text-gray-300">Nama Kepala Sekolah</label>

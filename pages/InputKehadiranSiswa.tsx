@@ -32,8 +32,8 @@ const InputKehadiranSiswaPage: React.FC = () => {
         if (tanggalParam) setTanggal(tanggalParam);
     }, [searchParams]);
 
-    // Menentukan jumlah pertemuan berdasarkan format hari sekolah
-    const jumlahPertemuan = identitasSekolah.format === HariFormat.LIMA ? 5 : 6;
+    // Mengambil jumlah pertemuan dari setting identitas sekolah (Default 8 jika belum diset)
+    const jumlahPertemuan = identitasSekolah.jumlahPertemuanPerHari || 8;
 
     const availablePengajar = useMemo(() => {
         if (!context || !selectedKelasId) return [];
@@ -57,12 +57,21 @@ const InputKehadiranSiswaPage: React.FC = () => {
             // MODE EDIT: Data ditemukan
             setIsEditMode(true);
             
-            // Map existing status to current students (handle students added after record creation)
+            // Map existing status to current students
             const mappedKehadiran = studentsInClass.map(s => {
                 const record = existingSiswaData.kehadiran.find(r => r.siswaId === s.id);
+                // Handle jika jumlah pertemuan berubah setelah data disimpan
+                let currentStatus = record ? [...record.status] : Array(jumlahPertemuan).fill(KehadiranStatus.HADIR) as KehadiranStatus[];
+                
+                // Jika setting JP bertambah, isi kekurangannya dengan HADIR
+                if (currentStatus.length < jumlahPertemuan) {
+                    const diff = jumlahPertemuan - currentStatus.length;
+                    currentStatus = [...currentStatus, ...Array(diff).fill(KehadiranStatus.HADIR)];
+                }
+                
                 return {
                     siswaId: s.id,
-                    status: record ? record.status : Array(jumlahPertemuan).fill(KehadiranStatus.HADIR) as KehadiranStatus[]
+                    status: currentStatus
                 };
             });
             setSiswaKehadiran(mappedKehadiran);
@@ -141,7 +150,7 @@ const InputKehadiranSiswaPage: React.FC = () => {
 
         setSiswaKehadiran(prev => prev.map(s => ({
             ...s,
-            status: s.status.map(() => status)
+            status: Array(jumlahPertemuan).fill(status) // Gunakan Array.fill dengan jumlahPertemuan yang baru
         })));
         
         setNotification({ type: 'success', message: `Semua siswa ditandai sebagai ${status}.` });
@@ -306,7 +315,7 @@ const InputKehadiranSiswaPage: React.FC = () => {
                                     Absensi Siswa: {kelasList.find(k=>k.id === selectedKelasId)?.nama_kelas}
                                 </h2>
                                 <div className="text-sm text-gray-400">
-                                    Format: {identitasSekolah.format} ({jumlahPertemuan} Pertemuan)
+                                    Format JP: {jumlahPertemuan} JP per Hari
                                 </div>
                             </div>
                             

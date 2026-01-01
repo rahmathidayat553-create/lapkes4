@@ -80,6 +80,7 @@ export interface IdentitasSekolah {
   alamat: string;
   logo: string; // base64 string
   format: HariFormat;
+  jumlahPertemuanPerHari: number; // New field: 1-20
 }
 
 export interface KalenderPendidikan {
